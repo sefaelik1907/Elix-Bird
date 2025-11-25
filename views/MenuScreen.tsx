@@ -1,23 +1,36 @@
+
 import React from 'react';
-import { Trophy, Volume2, Gamepad2, Star, Sparkles, User } from 'lucide-react';
+import { Trophy, Volume2, VolumeX, Gamepad2, Star, Sparkles, User } from 'lucide-react';
 import Button from '../components/Button';
 import { PlayerStats } from '../types';
 
 interface MenuScreenProps {
   onStart: () => void;
   onLeaderboard?: () => void;
+  onToggleSound?: () => void;
+  isMuted?: boolean;
   stats: PlayerStats;
   username?: string;
 }
 
-const MenuScreen: React.FC<MenuScreenProps> = ({ onStart, onLeaderboard, stats, username }) => {
+const MenuScreen: React.FC<MenuScreenProps> = ({ 
+  onStart, 
+  onLeaderboard, 
+  onToggleSound,
+  isMuted = false,
+  stats, 
+  username 
+}) => {
   return (
     <div className="flex flex-col h-full p-6 animate-in fade-in duration-500">
       
       {/* Top Bar */}
       <div className="flex justify-between items-center mt-2 mb-8">
-        <button className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform">
-          <Volume2 size={24} />
+        <button 
+          onClick={onToggleSound}
+          className={`w-12 h-12 rounded-2xl backdrop-blur-md border border-white/30 flex items-center justify-center shadow-lg active:scale-95 transition-transform ${isMuted ? 'bg-red-500/80 text-white' : 'bg-white/20 text-white'}`}
+        >
+          {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
         </button>
         
         {username && (

@@ -3,6 +3,13 @@
 // No external assets required
 
 let audioCtx: AudioContext | null = null;
+let isSystemMuted = false;
+
+export const setAudioMuted = (muted: boolean) => {
+  isSystemMuted = muted;
+  // If muted, we can also suspend the context to save battery, 
+  // but keeping it running ensures instant playback when unmuted.
+};
 
 const initAudio = () => {
   if (!audioCtx) {
@@ -15,6 +22,8 @@ const initAudio = () => {
 };
 
 export const playJumpSound = () => {
+  if (isSystemMuted) return;
+
   const ctx = initAudio();
   if (!ctx) return;
 
@@ -37,6 +46,8 @@ export const playJumpSound = () => {
 };
 
 export const playScoreSound = () => {
+  if (isSystemMuted) return;
+
   const ctx = initAudio();
   if (!ctx) return;
 
@@ -59,6 +70,8 @@ export const playScoreSound = () => {
 };
 
 export const playCrashSound = () => {
+  if (isSystemMuted) return;
+
   const ctx = initAudio();
   if (!ctx) return;
 

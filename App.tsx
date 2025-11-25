@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import MenuScreen from './views/MenuScreen';
@@ -7,6 +8,7 @@ import LeaderboardScreen from './views/LeaderboardScreen';
 import { WinModal, FailModal } from './views/ResultModals';
 import { AppScreen, PlayerStats, GameResult, User } from './types';
 import { loginUser, autoLogin, saveScore, getCurrentUserRank } from './utils/storage';
+import { setAudioMuted } from './utils/audio';
 import { Loader2 } from 'lucide-react';
 
 // Coupon Data
@@ -33,6 +35,7 @@ const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>(AppScreen.LOGIN);
   const [lastGameResult, setLastGameResult] = useState<GameResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   
   // User State
   const [user, setUser] = useState<User | null>(null);
@@ -87,6 +90,12 @@ const App: React.FC = () => {
     setCurrentScreen(AppScreen.LEADERBOARD);
   };
 
+  const handleToggleSound = () => {
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    setAudioMuted(newMutedState);
+  };
+
   const handleGameOver = async (score: number, _gameWon: boolean) => {
     let result: GameResult = { score };
     let nextScreen = AppScreen.FAIL;
@@ -95,8 +104,6 @@ const App: React.FC = () => {
     if (user) {
         const saveResult = await saveScore(user.email, score);
         if (saveResult.success && typeof saveResult.currentHighScore === 'number') {
-            // Update local state to reflect new DB state
-            // We do this optimistically or wait? Let's wait to be sure.
             await updateStats(user.email, saveResult.currentHighScore, user.gamesPlayed + 1);
             setUser(prev => prev ? { ...prev, highScore: saveResult.currentHighScore!, gamesPlayed: prev.gamesPlayed + 1 } : null);
         }
@@ -156,6 +163,8 @@ const App: React.FC = () => {
         <MenuScreen 
           onStart={handleStartGame} 
           onLeaderboard={handleOpenLeaderboard}
+          onToggleSound={handleToggleSound}
+          isMuted={isMuted}
           stats={playerStats} 
           username={user?.username}
         />
