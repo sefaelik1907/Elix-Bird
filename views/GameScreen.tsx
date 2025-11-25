@@ -1,12 +1,20 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { playJumpSound, playScoreSound, playCrashSound } from '../utils/audio';
+import confetti from 'canvas-confetti';
 
 interface GameScreenProps {
   onGameOver: (score: number, won: boolean) => void;
 }
 
 type GameStatus = 'IDLE' | 'PLAYING' | 'CRASHED';
+
+interface Pipe {
+  x: number;
+  topHeight: number;
+  passed: boolean;
+  label?: string; // e.g. "%5", "%10"
+}
 
 const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -28,11 +36,12 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
     birdY: 300,
     birdVelocity: 0,
     birdRotation: 0,
-    pipes: [] as { x: number; topHeight: number; passed: boolean }[],
+    pipes: [] as Pipe[],
     distanceSinceLastPipe: 0, 
     frameCount: 0,
     score: 0,
-    lastJumpTime: 0
+    lastJumpTime: 0,
+    pipesSpawned: 0
   });
 
   const lastTimeRef = useRef<number>(0);
@@ -103,7 +112,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
     ctx.restore();
   };
 
-  const drawPipe = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, isTop: boolean) => {
+  const drawPipe = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, isTop: boolean, label?: string) => {
     const gradient = ctx.createLinearGradient(x, 0, x + width, 0);
     gradient.addColorStop(0, '#FFFFFF');
     gradient.addColorStop(0.5, '#F0F9FF');
@@ -124,6 +133,18 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
 
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.fillRect(x + 10, y + (isTop ? 0 : 20), 10, height - 20);
+
+    // Draw Discount Label if exists (Only drawing it once, usually passed to the bottom pipe call or handled separately)
+  };
+
+  const drawDiscountText = (ctx: CanvasRenderingContext2D, x: number, centerY: number, label: string) => {
+      ctx.save();
+      ctx.fillStyle = 'rgba(236, 72, 153, 0.3)'; // Brand Pink, very faint
+      ctx.font = '900 60px Fredoka, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, x + 30, centerY); // +30 to center in pipe width (60)
+      ctx.restore();
   };
 
   // --- Main Game Loop ---
@@ -163,7 +184,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
         distanceSinceLastPipe: 0,
         frameCount: 0,
         score: 0,
-        lastJumpTime: 0
+        lastJumpTime: 0,
+        pipesSpawned: 0
     };
     
     setIsGameActiveUI(false);
@@ -217,14 +239,23 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
             if (gameState.current.distanceSinceLastPipe >= spawnDistance) {
                 gameState.current.distanceSinceLastPipe = 0;
                 
+                gameState.current.pipesSpawned += 1;
+                const spawnCount = gameState.current.pipesSpawned;
+
                 const minPipeHeight = 100;
                 const maxPipeHeight = currentLogicHeight - PIPE_GAP - minPipeHeight;
                 const randomHeight = Math.floor(Math.random() * (maxPipeHeight - minPipeHeight + 1) + minPipeHeight);
                 
+                let label = undefined;
+                if (spawnCount === 5) label = "%5";
+                else if (spawnCount === 10) label = "%10";
+                else if (spawnCount === 26) label = "%13";
+
                 gameState.current.pipes.push({
                     x: currentLogicWidth,
                     topHeight: randomHeight,
-                    passed: false
+                    passed: false,
+                    label: label
                 });
             }
 
@@ -257,8 +288,19 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
                 if (!pipe.passed && birdLeft > pipeRight) {
                     pipe.passed = true;
                     gameState.current.score += 1;
-                    setScore(gameState.current.score);
+                    const newScore = gameState.current.score;
+                    setScore(newScore);
                     playScoreSound();
+
+                    // In-Game Confetti for Milestones
+                    if (newScore === 5 || newScore === 10 || newScore === 26) {
+                        confetti({
+                            particleCount: 100,
+                            spread: 70,
+                            origin: { y: 0.6 },
+                            zIndex: 60
+                        });
+                    }
                 }
             }
         } else if (gameState.current.status === 'IDLE') {
@@ -275,6 +317,12 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
         gameState.current.pipes.forEach(pipe => {
             drawPipe(ctx, pipe.x, 0, 60, pipe.topHeight, true);
             drawPipe(ctx, pipe.x, pipe.topHeight + PIPE_GAP, 60, currentLogicHeight - (pipe.topHeight + PIPE_GAP), false);
+            
+            // Draw Label in the gap
+            if (pipe.label) {
+                const gapCenterY = pipe.topHeight + (PIPE_GAP / 2);
+                drawDiscountText(ctx, pipe.x, gapCenterY, pipe.label);
+            }
         });
 
         // Bird

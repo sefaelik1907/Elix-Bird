@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { Home, Copy, Repeat, PartyPopper, Frown } from 'lucide-react';
 import Button from '../components/Button';
@@ -7,6 +8,8 @@ import confetti from 'canvas-confetti';
 interface ResultModalProps {
   onHome: () => void;
   onRetry?: () => void; // Optional for win screen
+  title?: string;
+  message?: string;
 }
 
 interface WinModalProps extends ResultModalProps {
@@ -15,7 +18,12 @@ interface WinModalProps extends ResultModalProps {
 }
 
 // --- Fail Modal ---
-export const FailModal: React.FC<ResultModalProps> = ({ onHome, onRetry }) => {
+export const FailModal: React.FC<ResultModalProps> = ({ 
+  onHome, 
+  onRetry,
+  title = "Maalesef!",
+  message = "Maalesef meydan okumayı kazanamadın bence tekrar dene"
+}) => {
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="w-full max-w-sm bg-gradient-to-br from-purple-600 to-pink-700 rounded-[2rem] p-1 shadow-2xl relative overflow-hidden">
@@ -25,16 +33,18 @@ export const FailModal: React.FC<ResultModalProps> = ({ onHome, onRetry }) => {
             
             {/* Emoji/Icon */}
             <div className="mb-4 relative">
-                <div className="text-6xl filter drop-shadow-lg transform -rotate-12">🥺</div>
-                <div className="absolute -top-4 right-0 text-3xl opacity-80">💔</div>
+                <div className="text-6xl filter drop-shadow-lg transform -rotate-12">
+                   {title === "Maalesef!" ? "🥺" : "👑"}
+                </div>
+                {title === "Maalesef!" && <div className="absolute -top-4 right-0 text-3xl opacity-80">💔</div>}
             </div>
 
             {/* Text Content */}
-            <h2 className="text-3xl font-black text-white mb-2 display-font drop-shadow-md">
-                Maalesef!
+            <h2 className="text-3xl font-black text-white mb-2 display-font drop-shadow-md leading-tight">
+                {title}
             </h2>
             <p className="text-white/90 text-base mb-8 leading-relaxed font-medium">
-                Maalesef meydan okumayı kazanamadın bence tekrar dene
+                {message}
             </p>
 
             {/* Buttons */}

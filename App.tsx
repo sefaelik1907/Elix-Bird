@@ -7,7 +7,7 @@ import LoginScreen from './views/LoginScreen';
 import LeaderboardScreen from './views/LeaderboardScreen';
 import { WinModal, FailModal } from './views/ResultModals';
 import { AppScreen, PlayerStats, GameResult, User } from './types';
-import { loginUser, autoLogin, saveScore, getCurrentUserRank } from './utils/storage';
+import { loginUser, autoLogin, saveScore, getCurrentUserRank, claimDiscount } from './utils/storage';
 import { setAudioMuted } from './utils/audio';
 import { Loader2 } from 'lucide-react';
 
@@ -36,6 +36,8 @@ const App: React.FC = () => {
   const [lastGameResult, setLastGameResult] = useState<GameResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [failMessage, setFailMessage] = useState<string>("Maalesef meydan okumayı kazanamadın bence tekrar dene");
+  const [failTitle, setFailTitle] = useState<string>("Maalesef!");
   
   // User State
   const [user, setUser] = useState<User | null>(null);
@@ -98,8 +100,7 @@ const App: React.FC = () => {
 
   const handleGameOver = async (score: number, _gameWon: boolean) => {
     let result: GameResult = { score };
-    let nextScreen = AppScreen.FAIL;
-
+    
     // Save Score to DB Async
     if (user) {
         const saveResult = await saveScore(user.email, score);
@@ -111,22 +112,55 @@ const App: React.FC = () => {
 
     // Logic for rewards based on score
     if (score >= 5) {
-      nextScreen = AppScreen.WIN;
-      
+      // Determine potential reward
+      let potentialDiscount = "";
+      let potentialCode = "";
+
       if (score <= 9) {
-        result.discountAmount = "%5";
-        result.discountCode = getRandomCode(CODES_5_PERCENT);
+        potentialDiscount = "%5";
+        potentialCode = getRandomCode(CODES_5_PERCENT);
       } else if (score <= 25) {
-        result.discountAmount = "%10";
-        result.discountCode = getRandomCode(CODES_10_PERCENT);
+        potentialDiscount = "%10";
+        potentialCode = getRandomCode(CODES_10_PERCENT);
       } else {
-        result.discountAmount = "%13";
-        result.discountCode = getRandomCode(CODES_13_PERCENT);
+        potentialDiscount = "%13";
+        potentialCode = getRandomCode(CODES_13_PERCENT);
+      }
+
+      // CHECK IF ALREADY CLAIMED
+      const alreadyClaimed = user?.claimedDiscounts?.includes(potentialDiscount);
+
+      if (alreadyClaimed) {
+          // Show Fail/Info Screen
+          setFailTitle("Tebrikler ama...");
+          setFailMessage(`Bu ay ${potentialDiscount} indirimini daha önce kazandın! Bence daha yüksek bir indirim kazanabilirsin, meydan okumaya devam!`);
+          setCurrentScreen(AppScreen.FAIL);
+          return;
+      } else {
+          // New Reward!
+          result.discountAmount = potentialDiscount;
+          result.discountCode = potentialCode;
+          
+          if (user) {
+             // Save claim to DB
+             await claimDiscount(user.email, potentialDiscount);
+             // Update local user state
+             setUser(prev => prev ? { 
+                 ...prev, 
+                 claimedDiscounts: [...(prev.claimedDiscounts || []), potentialDiscount] 
+             } : null);
+          }
+
+          setLastGameResult(result);
+          setCurrentScreen(AppScreen.WIN);
+          return;
       }
     }
 
-    setLastGameResult(result);
-    setCurrentScreen(nextScreen);
+    // Default Fail (Score < 5)
+    setFailTitle("Maalesef!");
+    setFailMessage("Maalesef meydan okumayı kazanamadın bence tekrar dene");
+    setCurrentScreen(AppScreen.FAIL);
   };
 
   const handleGoHome = async () => {
@@ -194,7 +228,9 @@ const App: React.FC = () => {
            <MenuScreen onStart={() => {}} onLeaderboard={() => {}} stats={playerStats} username={user?.username} />
           <FailModal 
             onHome={handleGoHome} 
-            onRetry={handleRetry} 
+            onRetry={handleRetry}
+            title={failTitle}
+            message={failMessage} 
           />
         </>
       )}

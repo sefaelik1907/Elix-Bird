@@ -11,7 +11,8 @@ import {
   orderBy, 
   limit, 
   getDocs,
-  increment 
+  increment,
+  arrayUnion
 } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
 
@@ -32,8 +33,6 @@ const ensureAuth = async () => {
       await signInAnonymously(auth);
     } catch (e) {
       console.error("Auth Error:", e);
-      // Fallback: If auth fails, the DB calls might fail too depending on rules, 
-      // but we continue to try.
     }
   }
 };
@@ -59,7 +58,7 @@ export const loginUser = async (email: string) => {
         userId: lowerEmail,
         username: userData.username,
         autoLogin: true,
-        user: userData
+        user: { ...userData, claimedDiscounts: userData.claimedDiscounts || [] }
       };
     } else {
       // Create new user
@@ -67,7 +66,8 @@ export const loginUser = async (email: string) => {
         email: lowerEmail,
         username: maskUsername(lowerEmail),
         highScore: 0,
-        gamesPlayed: 0
+        gamesPlayed: 0,
+        claimedDiscounts: []
       };
 
       await setDoc(userRef, newUser);
@@ -128,6 +128,22 @@ export const saveScore = async (email: string, score: number) => {
   } catch (error) {
     console.error("Save score error:", error);
     return { success: false };
+  }
+};
+
+export const claimDiscount = async (email: string, discountLabel: string) => {
+  await ensureAuth();
+  const lowerEmail = email.toLowerCase();
+  const userRef = doc(db, "users", lowerEmail);
+
+  try {
+    await updateDoc(userRef, {
+      claimedDiscounts: arrayUnion(discountLabel)
+    });
+    return true;
+  } catch (error) {
+    console.error("Claim discount error:", error);
+    return false;
   }
 };
 

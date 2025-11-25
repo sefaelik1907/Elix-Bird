@@ -25,6 +25,7 @@ export interface User {
   username: string; // The masked username
   highScore: number;
   gamesPlayed: number;
+  claimedDiscounts?: string[]; // Track which rewards have been claimed (e.g., ["%5", "%10"])
 }
 
 export interface LeaderboardEntry {
