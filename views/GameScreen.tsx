@@ -321,7 +321,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
     };
   }, [onGameOver]);
 
-  const handleTap = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleTap = (e: React.PointerEvent) => {
     e.preventDefault();
     
     // Resume audio context on first interaction if suspended
@@ -341,8 +341,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
   return (
     <div 
       className="h-full w-full relative overflow-hidden select-none touch-none"
-      onMouseDown={handleTap}
-      onTouchStart={handleTap}
+      onPointerDown={handleTap}
     >
         <canvas 
             ref={canvasRef} 
