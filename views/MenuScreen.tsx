@@ -21,6 +21,7 @@ const MenuScreen: React.FC<MenuScreenProps> = ({
   stats, 
   username 
 }) => {
+
   return (
     <div className="flex flex-col h-full p-6 animate-in fade-in duration-500">
       
@@ -43,7 +44,7 @@ const MenuScreen: React.FC<MenuScreenProps> = ({
 
       {/* Logo Area */}
       <div className="flex-1 flex flex-col items-center justify-center relative mb-10">
-        <div className="animate-float">
+        <div className="animate-float select-none">
             <div className="bg-red-600 text-white font-black px-4 py-1 rounded-full text-xs tracking-widest uppercase shadow-glow mb-4 mx-auto w-max">
             ELIXUNDER
             </div>

@@ -1,3 +1,4 @@
+
 export enum AppScreen {
   LOGIN = 'LOGIN',
   MENU = 'MENU',

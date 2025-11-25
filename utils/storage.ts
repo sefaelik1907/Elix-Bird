@@ -1,3 +1,4 @@
+
 import { User, LeaderboardEntry } from '../types';
 import { db, auth } from '../firebaseConfig';
 import { 
@@ -155,19 +156,32 @@ export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
 
 export const getCurrentUserRank = async (email: string): Promise<number> => {
   await ensureAuth();
-  // Firestore doesn't support native ranking easily without fetching data.
-  // For this scale, fetching top 100 or all (if small) is acceptable, 
-  // or just fetching the leaderboard and finding index.
   try {
     const leaderboard = await getLeaderboard();
     const index = leaderboard.findIndex(u => {
-        // We need to match masked username as we don't expose email in leaderboard return
-        // Ideally we should use email to find rank but for security we might not want to download all emails.
-        // For now, let's reconstruct masked name to match.
         return u.username === maskUsername(email);
     });
     return index !== -1 ? index + 1 : 0;
   } catch (error) {
     return 0;
+  }
+};
+
+export const getAllUsersForAdmin = async (): Promise<User[]> => {
+  await ensureAuth();
+  
+  try {
+    const q = query(collection(db, "users"), orderBy("highScore", "desc"));
+    const querySnapshot = await getDocs(q);
+    
+    const users: User[] = [];
+    querySnapshot.forEach((doc) => {
+      users.push(doc.data() as User);
+    });
+    
+    return users;
+  } catch (error) {
+    console.error("Admin fetch error:", error);
+    return [];
   }
 };
