@@ -6,30 +6,33 @@ interface GameScreenProps {
   onGameOver: (score: number, won: boolean) => void;
 }
 
+type GameStatus = 'IDLE' | 'PLAYING' | 'CRASHED';
+
 const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
-  const [gameStarted, setGameStarted] = useState(false);
+  
+  // React state purely for UI overlay visibility, logic uses refs
+  const [isGameActiveUI, setIsGameActiveUI] = useState(false);
 
   // Game Constants (Base Values for 60FPS)
-  // We will scale these by Delta Time
   const GRAVITY = 0.6;
   const JUMP = -9.6; 
-  const BASE_PIPE_SPEED = 3.0; // Reduced from 3.8 for 20% slower gameplay
-  const BASE_PIPE_SPAWN_RATE = 90; // Increased from 72 to maintain spatial gap
+  const BASE_PIPE_SPEED = 3.0;
+  const BASE_PIPE_SPAWN_RATE = 90;
   const PIPE_GAP = 180;
 
   // Game State Refs
   const gameState = useRef({
+    status: 'IDLE' as GameStatus,
     birdY: 300,
     birdVelocity: 0,
     birdRotation: 0,
     pipes: [] as { x: number; topHeight: number; passed: boolean }[],
-    // Used to track spawn timing independent of framerate
     distanceSinceLastPipe: 0, 
-    frameCount: 0, // Visual frame count for animations
-    isRunning: false,
-    score: 0
+    frameCount: 0,
+    score: 0,
+    lastJumpTime: 0
   });
 
   const lastTimeRef = useRef<number>(0);
@@ -150,17 +153,20 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
     const logicHeight = window.innerHeight;
     const logicWidth = window.innerWidth > 450 ? 450 : window.innerWidth;
 
+    // Reset Game State
     gameState.current = {
+        status: 'IDLE',
         birdY: logicHeight / 2,
         birdVelocity: 0,
         birdRotation: 0,
         pipes: [],
         distanceSinceLastPipe: 0,
         frameCount: 0,
-        isRunning: false,
-        score: 0
+        score: 0,
+        lastJumpTime: 0
     };
-    setGameStarted(false);
+    
+    setIsGameActiveUI(false);
     setScore(0);
 
     let animationFrameId: number;
@@ -171,24 +177,16 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
         const deltaTime = timestamp - lastTimeRef.current;
         lastTimeRef.current = timestamp;
 
-        // Calculate timeScale (1.0 at 60FPS)
-        // If 120Hz, deltaTime ~8ms, timeScale ~0.5
-        const timeScale = deltaTime / (1000 / 60);
+        // Cap deltaTime to prevent huge jumps if tab was inactive
+        const safeDeltaTime = Math.min(deltaTime, 50); 
+        const timeScale = safeDeltaTime / (1000 / 60);
 
         const currentLogicWidth = window.innerWidth > 450 ? 450 : window.innerWidth;
         const currentLogicHeight = window.innerHeight;
-
-        // Move bird position to left side (35% of width) instead of center (50%)
         const birdX = currentLogicWidth * 0.35;
 
-        if (!gameState.current.isRunning && gameStarted) {
-            // Paused? Just return
-             animationFrameId = requestAnimationFrame(loop);
-             return;
-        }
-
-        // --- Update Physics ---
-        if (gameState.current.isRunning) {
+        // --- Game Logic ---
+        if (gameState.current.status === 'PLAYING') {
             // Apply Gravity
             gameState.current.birdVelocity += GRAVITY * timeScale;
             gameState.current.birdY += gameState.current.birdVelocity * timeScale;
@@ -196,10 +194,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
             // Rotation logic
             gameState.current.birdRotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (gameState.current.birdVelocity * 0.1)));
             
-            gameState.current.frameCount += 1 * timeScale; // Animation frames can scale too
+            gameState.current.frameCount += 1 * timeScale; 
 
-            // Difficulty Logic: Increase speed linearly (constant rate)
-            // 0.07 speed per point (smooth version of 0.7 per 10 points)
+            // Difficulty Logic
             const speedIncrease = gameState.current.score * 0.07;
             const currentSpeed = BASE_PIPE_SPEED + speedIncrease;
             
@@ -213,12 +210,8 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
                 gameState.current.pipes.shift();
             }
 
-            // Spawn Logic (Distance based now, for better scaling with speed)
+            // Spawn Logic
             gameState.current.distanceSinceLastPipe += currentSpeed * timeScale;
-            
-            // Calculate spawn distance based on requested RATE (frames) and SPEED
-            // RATE (90) * BASE_SPEED (3.0) = 270 pixels between pipes
-            // Keeping distance constant ensures the "gap" to fly through feels consistent even as speed increases.
             const spawnDistance = BASE_PIPE_SPAWN_RATE * BASE_PIPE_SPEED; 
             
             if (gameState.current.distanceSinceLastPipe >= spawnDistance) {
@@ -248,7 +241,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
             }
 
             // Pipes
-            gameState.current.pipes.forEach(pipe => {
+            for (const pipe of gameState.current.pipes) {
                 const pipeLeft = pipe.x;
                 const pipeRight = pipe.x + 60;
 
@@ -256,6 +249,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
                     if (birdTop < pipe.topHeight || birdBottom > pipe.topHeight + PIPE_GAP) {
                         playCrashSound();
                         endGame(false);
+                        break; // Stop checking after first collision
                     }
                 }
 
@@ -266,13 +260,13 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
                     setScore(gameState.current.score);
                     playScoreSound();
                 }
-            });
-
-        } else {
-             // Idle Animation
+            }
+        } else if (gameState.current.status === 'IDLE') {
+             // Idle Animation (Hovering)
              gameState.current.frameCount += 1 * timeScale;
              gameState.current.birdY = currentLogicHeight / 2 + Math.sin(Date.now() / 300) * 10;
-        }
+        } 
+        // If CRASHED, we do NOTHING to positions (Freeze effect)
 
         // --- Draw ---
         ctx.clearRect(0, 0, currentLogicWidth, currentLogicHeight);
@@ -284,32 +278,44 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
         });
 
         // Bird
-        // Draw using new birdX position
         drawBoxerBird(ctx, birdX, gameState.current.birdY, gameState.current.birdRotation);
 
-        // Floor Clouds
-        // Linear increase for floor speed as well to match pipes
-        const speedIncrease = gameState.current.score * 0.07;
-        const currentSpeed = BASE_PIPE_SPEED + speedIncrease;
+        // Floor
+        // Only scroll floor if playing or idle
+        const isMoving = gameState.current.status !== 'CRASHED';
+        if (isMoving) {
+            const speedIncrease = gameState.current.score * 0.07;
+            const currentSpeed = BASE_PIPE_SPEED + speedIncrease;
+            const floorOffset = (gameState.current.frameCount * currentSpeed) % 40;
             
-        // Use cumulative distance for smooth floor scrolling independent of frame reset
-        const floorOffset = (gameState.current.frameCount * currentSpeed) % 40;
-        
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.fillRect(0, currentLogicHeight - 20, currentLogicWidth, 20);
-        for(let i=0; i < currentLogicWidth + 40; i+=40) {
-            ctx.beginPath();
-            ctx.arc(i - floorOffset, currentLogicHeight - 10, 25, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.fillRect(0, currentLogicHeight - 20, currentLogicWidth, 20);
+            for(let i=0; i < currentLogicWidth + 40; i+=40) {
+                ctx.beginPath();
+                ctx.arc(i - floorOffset, currentLogicHeight - 10, 25, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } else {
+             // Draw Static Floor if crashed
+             ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+             ctx.fillRect(0, currentLogicHeight - 20, currentLogicWidth, 20);
+             for(let i=0; i < currentLogicWidth + 40; i+=40) {
+                 ctx.beginPath();
+                 ctx.arc(i, currentLogicHeight - 10, 25, 0, Math.PI * 2);
+                 ctx.fill();
+             }
         }
 
         animationFrameId = requestAnimationFrame(loop);
     };
 
     const endGame = (won: boolean) => {
-        gameState.current.isRunning = false;
-        cancelAnimationFrame(animationFrameId);
-        onGameOver(gameState.current.score, won);
+        gameState.current.status = 'CRASHED';
+        // Wait a moment before showing result to let player realize they died
+        setTimeout(() => {
+            cancelAnimationFrame(animationFrameId);
+            onGameOver(gameState.current.score, won);
+        }, 500);
     };
 
     // Start loop
@@ -323,17 +329,24 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
 
   const handleTap = (e: React.PointerEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     
+    const now = Date.now();
+    // Cooldown check (prevent double jumps from bouncing contacts)
+    if (now - gameState.current.lastJumpTime < 150) {
+        return;
+    }
+    gameState.current.lastJumpTime = now;
+
     // Resume audio context on first interaction if suspended
     playJumpSound(); 
 
-    if (!gameStarted) {
-        setGameStarted(true);
-        gameState.current.isRunning = true;
+    if (gameState.current.status === 'IDLE') {
+        gameState.current.status = 'PLAYING';
+        setIsGameActiveUI(true);
         gameState.current.birdVelocity = JUMP;
-        // Reset timing for new game
         lastTimeRef.current = performance.now();
-    } else if (gameState.current.isRunning) {
+    } else if (gameState.current.status === 'PLAYING') {
         gameState.current.birdVelocity = JUMP;
     }
   };
@@ -346,7 +359,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
         <canvas 
             ref={canvasRef} 
             className="block w-full h-full"
-            style={{ imageRendering: 'pixelated' }} // Optional, for crisp edges
+            style={{ imageRendering: 'pixelated' }} 
         />
 
         {/* UI Overlay */}
@@ -359,7 +372,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver }) => {
             </div>
         </div>
 
-        {!gameStarted && (
+        {!isGameActiveUI && gameState.current.status === 'IDLE' && (
              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-20 pointer-events-none text-center">
                 <div className="bg-black/10 backdrop-blur-sm p-4 rounded-2xl animate-pulse">
                     <p className="text-white font-bold text-lg drop-shadow-md">Başlamak için dokun!</p>
