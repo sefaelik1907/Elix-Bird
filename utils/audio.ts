@@ -7,8 +7,6 @@ let isSystemMuted = false;
 
 export const setAudioMuted = (muted: boolean) => {
   isSystemMuted = muted;
-  // If muted, we can also suspend the context to save battery, 
-  // but keeping it running ensures instant playback when unmuted.
 };
 
 const initAudio = () => {
@@ -34,7 +32,6 @@ export const playJumpSound = () => {
   gain.connect(ctx.destination);
 
   osc.type = 'sine';
-  // Jump effect: Pitch goes up quickly
   osc.frequency.setValueAtTime(300, ctx.currentTime);
   osc.frequency.linearRampToValueAtTime(500, ctx.currentTime + 0.1);
 
@@ -58,7 +55,6 @@ export const playScoreSound = () => {
   gain.connect(ctx.destination);
 
   osc.type = 'triangle';
-  // Coin/Score effect: High pitch ping
   osc.frequency.setValueAtTime(800, ctx.currentTime);
   osc.frequency.setValueAtTime(1200, ctx.currentTime + 0.1);
 
@@ -81,13 +77,18 @@ export const playCrashSound = () => {
   osc.connect(gain);
   gain.connect(ctx.destination);
 
+  // Cartoon "Fart" / "Bırtt" Sound
   osc.type = 'sawtooth';
-  // Crash effect: Low pitch drop
-  osc.frequency.setValueAtTime(150, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.3);
+  
+  // Start low, go lower rapidly with some wobble
+  osc.frequency.setValueAtTime(120, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.15);
+  osc.frequency.linearRampToValueAtTime(20, ctx.currentTime + 0.3);
 
-  gain.gain.setValueAtTime(0.4, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+  // Envelope
+  gain.gain.setValueAtTime(0.5, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.6, ctx.currentTime + 0.05); // Attack
+  gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3); // Decay
 
   osc.start(ctx.currentTime);
   osc.stop(ctx.currentTime + 0.3);

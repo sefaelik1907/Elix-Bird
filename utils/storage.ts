@@ -170,6 +170,24 @@ export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
   }
 };
 
+export const getTopScores = async (): Promise<number[]> => {
+  await ensureAuth();
+  try {
+    const q = query(collection(db, "users"), orderBy("highScore", "desc"), limit(3));
+    const querySnapshot = await getDocs(q);
+    const scores: number[] = [];
+    querySnapshot.forEach((doc) => {
+      scores.push((doc.data() as User).highScore);
+    });
+    // Fill remaining spots with 0 if less than 3 players
+    while(scores.length < 3) scores.push(0);
+    return scores;
+  } catch (error) {
+    console.error("Error fetching top scores", error);
+    return [0, 0, 0];
+  }
+};
+
 export const getCurrentUserRank = async (email: string): Promise<number> => {
   await ensureAuth();
   try {
@@ -180,24 +198,5 @@ export const getCurrentUserRank = async (email: string): Promise<number> => {
     return index !== -1 ? index + 1 : 0;
   } catch (error) {
     return 0;
-  }
-};
-
-export const getAllUsersForAdmin = async (): Promise<User[]> => {
-  await ensureAuth();
-  
-  try {
-    const q = query(collection(db, "users"), orderBy("highScore", "desc"));
-    const querySnapshot = await getDocs(q);
-    
-    const users: User[] = [];
-    querySnapshot.forEach((doc) => {
-      users.push(doc.data() as User);
-    });
-    
-    return users;
-  } catch (error) {
-    console.error("Admin fetch error:", error);
-    return [];
   }
 };

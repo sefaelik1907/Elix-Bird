@@ -7,7 +7,7 @@ import LoginScreen from './views/LoginScreen';
 import LeaderboardScreen from './views/LeaderboardScreen';
 import { WinModal, FailModal } from './views/ResultModals';
 import { AppScreen, PlayerStats, GameResult, User } from './types';
-import { loginUser, autoLogin, saveScore, getCurrentUserRank, claimDiscount } from './utils/storage';
+import { loginUser, autoLogin, saveScore, getCurrentUserRank, claimDiscount, getTopScores } from './utils/storage';
 import { setAudioMuted } from './utils/audio';
 import { Loader2 } from 'lucide-react';
 
@@ -38,6 +38,7 @@ const App: React.FC = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [failMessage, setFailMessage] = useState<string>("Maalesef meydan okumayı kazanamadın bence tekrar dene");
   const [failTitle, setFailTitle] = useState<string>("Maalesef!");
+  const [topScores, setTopScores] = useState<number[]>([0,0,0]);
   
   // User State
   const [user, setUser] = useState<User | null>(null);
@@ -84,7 +85,12 @@ const App: React.FC = () => {
     setIsLoading(false);
   };
 
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
+    // Fetch top scores for in-game rank updates
+    setIsLoading(true);
+    const scores = await getTopScores();
+    setTopScores(scores);
+    setIsLoading(false);
     setCurrentScreen(AppScreen.GAME);
   };
 
@@ -172,7 +178,7 @@ const App: React.FC = () => {
   };
 
   const handleRetry = () => {
-    setCurrentScreen(AppScreen.GAME);
+    handleStartGame();
   };
 
   if (isLoading && currentScreen === AppScreen.LOGIN) {
@@ -209,7 +215,7 @@ const App: React.FC = () => {
       )}
 
       {currentScreen === AppScreen.GAME && (
-        <GameScreen onGameOver={handleGameOver} />
+        <GameScreen onGameOver={handleGameOver} topScores={topScores} />
       )}
 
       {currentScreen === AppScreen.WIN && lastGameResult && (
