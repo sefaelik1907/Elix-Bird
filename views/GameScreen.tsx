@@ -289,7 +289,10 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, topScores }) => {
             // Base distance (270px) + extra buffer based on score
             // This ensures the TIME interval between pipes remains manageable even at high speeds
             const baseSpawnDistance = BASE_PIPE_SPAWN_RATE * BASE_PIPE_SPEED;
-            const variableSpacing = Math.min(gameState.current.score * 2.5, 160); // Cap extra spacing
+            
+            // Modified to be tighter: 1.2 multiplier capped at 100px extra
+            const variableSpacing = Math.min(gameState.current.score * 1.2, 100);
+            
             const spawnDistance = baseSpawnDistance + variableSpacing;
             
             if (gameState.current.distanceSinceLastPipe >= spawnDistance) {
