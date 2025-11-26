@@ -267,9 +267,11 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, topScores }) => {
             
             gameState.current.frameCount += 1 * timeScale; 
 
-            // Difficulty Logic
-            const speedIncrease = gameState.current.score * 0.07;
-            const currentSpeed = BASE_PIPE_SPEED + speedIncrease;
+            // Difficulty Logic: Dynamic Speed and Spacing
+            // Slower acceleration (0.045 per point instead of 0.07)
+            const speedIncrease = gameState.current.score * 0.045;
+            // Cap speed at 6.5 to prevent it from becoming physically impossible
+            const currentSpeed = Math.min(BASE_PIPE_SPEED + speedIncrease, 6.5);
             
             // Move Pipes
             gameState.current.pipes.forEach(pipe => {
@@ -282,7 +284,13 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, topScores }) => {
 
             // Spawn Logic
             gameState.current.distanceSinceLastPipe += currentSpeed * timeScale;
-            const spawnDistance = BASE_PIPE_SPAWN_RATE * BASE_PIPE_SPEED; 
+            
+            // Dynamic Spacing: Increase horizontal distance as speed increases
+            // Base distance (270px) + extra buffer based on score
+            // This ensures the TIME interval between pipes remains manageable even at high speeds
+            const baseSpawnDistance = BASE_PIPE_SPAWN_RATE * BASE_PIPE_SPEED;
+            const variableSpacing = Math.min(gameState.current.score * 2.5, 160); // Cap extra spacing
+            const spawnDistance = baseSpawnDistance + variableSpacing;
             
             if (gameState.current.distanceSinceLastPipe >= spawnDistance) {
                 gameState.current.distanceSinceLastPipe = 0;
@@ -312,11 +320,7 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, topScores }) => {
             let rankTitle = '';
 
             // topScores = [rank1, rank2, rank3]
-            // We assume topScores are descending: e.g. [50, 30, 10]
-            // If score > topScores[2] (10) -> Bronze
-            // If score > topScores[1] (30) -> Gold
-            // If score > topScores[0] (50) -> Orange
-
+            // We assume topScores are descending
             if (gameState.current.score > topScores[0]) {
                 targetSkin = 'ORANGE';
                 rankTitle = '1.';
@@ -337,11 +341,12 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, topScores }) => {
                     origin: { y: 0.5 },
                     zIndex: 100
                 });
-                // Clear notification after 2s
+                // Clear notification after 2.5s
                 setTimeout(() => setRankNotification(null), 2500);
             }
 
             // --- Collision Detection ---
+            // Reduced hitbox (18px radius)
             const birdLeft = birdX - 18; 
             const birdRight = birdX + 18;
             const birdTop = gameState.current.birdY - 14;
@@ -406,8 +411,9 @@ const GameScreen: React.FC<GameScreenProps> = ({ onGameOver, topScores }) => {
         // Floor
         const isMoving = gameState.current.status !== 'CRASHED';
         if (isMoving) {
-            const speedIncrease = gameState.current.score * 0.07;
-            const currentSpeed = BASE_PIPE_SPEED + speedIncrease;
+            // Recalculate speed for floor animation to match pipe speed
+            const speedIncrease = gameState.current.score * 0.045;
+            const currentSpeed = Math.min(BASE_PIPE_SPEED + speedIncrease, 6.5);
             const floorOffset = (gameState.current.frameCount * currentSpeed) % 40;
             
             ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
